@@ -6,7 +6,9 @@
 -- You can write comments in this file by starting them with two dashes, like
 -- these lines here.
 
+DROP DATABASE IF EXISTS tournament;
 CREATE DATABASE tournament;
+\c tournament;
 -- Players table definition
 CREATE TABLE players (
     player_id SERIAL PRIMARY KEY,
@@ -52,3 +54,16 @@ GROUP BY
     p.player_id
 ORDER BY totalmatchcount DESC;
 
+
+-- playerstats is a view that computes match statistics by player id and name
+CREATE VIEW playerstats AS
+SELECT
+    p.player_id, p.name,
+    COALESCE(w.wincount,0) as wincount,
+    COALESCE(t.totalmatchcount,0) as totalmatchcount
+FROM
+    players p
+    LEFT JOIN winstats w ON p.player_id = w.player_id
+    LEFT JOIN totalstats t ON p.player_id = t.player_id
+ORDER BY
+    w.wincount DESC;

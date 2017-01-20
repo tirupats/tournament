@@ -6,15 +6,20 @@
 import psycopg2
 
 
-def connect():
-    return psycopg2.connect("dbname=tournament")
+def connect(database_name="tournament"):
+    # return psycopg2.connect("dbname=tournament")
+    try:
+        db = psycopg2.connect("dbname={}".format(database_name))
+        cursor = db.cursor()
+        return db, cursor
+    except:
+        print("<error message>")
 
 
 def deleteMatches():
     """Remove all the match records from the database."""
     qry = "delete from matches;"
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute(qry)
     conn.commit()
     conn.close()
@@ -22,22 +27,22 @@ def deleteMatches():
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    qry = "delete from players;"
-    conn = connect()
-    cursor = conn.cursor()
+    qry = "TRUNCATE TABLE players CASCADE;"
+    conn, cursor = connect()
     cursor.execute(qry)
     conn.commit()
     conn.close()
 
+
 def countPlayers():
     """Returns the number of players currently registered."""
-    qry = "select * from players;"
-    conn = connect()
-    cursor = conn.cursor()
+    qry = "select count(*) from players;"
+    conn, cursor = connect()
     cursor.execute(qry)
-    results = cursor.fetchall()
+    results = cursor.fetchone()
     conn.close()
-    return len(results)#if results is not None else 0
+    return results[0]
+
 
 def registerPlayer(name):
     """Adds a player to the tournament database.
@@ -49,18 +54,19 @@ def registerPlayer(name):
       name: the player's full name (need not be unique).
     """
     qry = "INSERT INTO players (name) VALUES (%s);"
-    conn = connect()
-    cursor = conn.cursor()
-    #pass name as a tuple to avoid sql injection attack
-    cursor.execute(qry, (name,))
+    params = (name,)
+    conn, cursor = connect()
+    # pass name as a tuple to avoid sql injection attack
+    cursor.execute(qry, params)
     conn.commit()
     conn.close()
+
 
 def playerStandings():
     """Returns a list of the players and their win records, sorted by wins.
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    The first entry in the list should be the player in first place, or a
+    player tied for first place if there is currently a tie.
 
     Returns:
       A list of tuples, each of which contains (id, name, wins, matches):
@@ -69,20 +75,12 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    qry = "SELECT p.player_id, p.name, COALESCE(w.wincount,0) as wincount, "\
-          "COALESCE(t.totalmatchcount,0) as totalmatchcount "\
-          "FROM players p LEFT JOIN winstats w ON p.player_id = w.player_id "\
-          "LEFT JOIN totalstats t ON p.player_id = t.player_id "\
-          "ORDER BY w.wincount DESC;"
-    #ps = []
-    conn = connect()
-    cursor = conn.cursor()
-    #pass name as a tuple to avoid sql injection attack
+    qry = "SELECT * FROM playerstats;"
+    conn, cursor = connect()
+    # pass name as a tuple to avoid sql injection attack
     cursor.execute(qry)
     results = cursor.fetchall()
     conn.close()
-    #ps.append(results)
-    #return ps
     return results
 
 def reportMatch(winner, loser):
@@ -93,12 +91,13 @@ def reportMatch(winner, loser):
       loser:  the id number of the player who lost
     """
     qry = "INSERT INTO matches (winner, loser) VALUES (%s, %s)"
-    conn = connect()
-    cursor = conn.cursor()
-    #pass name as a tuple to avoid sql injection attack
-    cursor.execute(qry, (winner,loser))
+    conn, cursor = connect()
+    params = (winner, loser)
+    # pass name as a tuple to avoid sql injection attack
+    cursor.execute(qry, params)
     conn.commit()
     conn.close()
+
 
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
@@ -119,10 +118,7 @@ def swissPairings():
     sp = []
     i = 0
     while i < len(players):
-        sp.append((players[i][0], players[i][1], players[i+1][0], players[i+1][1]))
+        sp.append((players[i][0], players[i][1], players[i+1][0],
+            players[i+1][1]))
         i = i + 2
     return sp
-
-
-
-
